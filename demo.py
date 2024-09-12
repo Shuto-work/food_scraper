@@ -7,15 +7,9 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 
 # Chromeドライバーのパスを指定
-# chrome_service = Service('/usr/local/bin/chromedriver')
 options = webdriver.ChromeOptions()
 
-# # Chromeオプションを設定（必要に応じて）
-# chrome_options = Options()
-# chrome_options.add_argument('--headless')  # ヘッドレスモード
-
-# WebDriverを起動
-# driver = webdriver.Chrome(service=chrome_service, options=chrome_options)
+#デバイスドライバーの起動
 driver = webdriver.Chrome(options=options)
 
 # 検索結果ページにアクセス
@@ -23,31 +17,30 @@ search_url = 'https://tabelog.com/osaka/C27100/rstLst/yakiniku/?vs=1&sa=%E5%A4%A
 driver.get(search_url)
 
 print(search_url)
-# # 最初の店舗タイトルをクリックするまで待つ
-# try:
-#     first_store = WebDriverWait(driver, 10).until(
-#         EC.presence_of_element_located(
-#             (By.CSS_SELECTOR, '.list-rst__rst-name a'))
-#     )
-#     first_store.click()
+# 最初の店舗タイトルをクリックするまで待つ
+try:
+    first_store = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.CSS_SELECTOR, '.list-rst__rst-name a'))
+    )
+    first_store.click()
 
-#     # 店舗ページが開くまで10秒待つ
-#     WebDriverWait(driver, 10).until(
-#         EC.presence_of_element_located((By.CSS_SELECTOR, '.display-name'))
-#     )
+    # 店舗ページが開くまで10秒待つ
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, '.display-name'))
+    )
 
-#     # 店舗ページでデータを取得
-#     # 店名の取得
-#     store_name = driver.find_element(By.CSS_SELECTOR, '.display-name').text
+    # 店舗ページでデータを取得
+    # 店名の取得
+    store_name = driver.find_element(By.CSS_SELECTOR, '.display-name').text
 
-#     # ジャンルの取得
-#     genre = driver.find_element(
-#         By.CSS_SELECTOR, '.rstinfo-table__genre span').text
+    # ジャンルの取得
+    genre = driver.find_element(
+        By.CSS_SELECTOR, '.rstinfo-table__genre span').text
 
-#     print(f"店名: {store_name}")
-#     print(f"ジャンル: {genre}")
+    print(f"店名: {store_name}")
+    print(f"ジャンル: {genre}")
 
-# finally:
-#     # ドライバーを終了
-#     driver.quit()
-driver.quit()
+finally:
+    # ドライバーを終了
+    driver.quit()
