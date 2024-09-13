@@ -1,6 +1,6 @@
 tabelog_scraper
-.csv
-.png
+*.csv
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
