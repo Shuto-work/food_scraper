@@ -4,226 +4,193 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from selenium.webdriver.common.action_chains import ActionChains
 import csv
+import time
+import json
+from urllib.parse import urlparse, urlunparse
+import random
 
 
 def setup_driver():
     options = Options()
-    # options.add_argument('--headless')  # デバッグ中はコメントアウト
+    # options.add_argument('--headless=new')  # ヘッドレスモードを無効化
+    options.add_argument('--disable-gpu')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument(
-        'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36')
-    return webdriver.Chrome(options=options)
+        'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)'
+    )
+    driver = webdriver.Chrome(options=options)
+    driver.set_page_load_timeout(60)  # ページ読み込みタイムアウトを60秒に設定
+    return driver
 
 
-def wait_for_page_load(driver, timeout=30):
+def wait_for_page_load(driver, timeout=60):
     try:
         WebDriverWait(driver, timeout).until(
             lambda d: d.execute_script(
                 'return document.readyState') == 'complete'
-        )
+            )
     except TimeoutException:
         print(f"ページの読み込みに{timeout}秒以上かかりました。")
 
 
-def get_restaurant_info(url):
-    driver = setup_driver()
+def get_store_urls(driver):
+    store_urls = []
     try:
-        # 検索結果ページにアクセス
-        driver.get(url)
-        wait_for_page_load(driver)
-        print("検索結果ページにアクセスしました。")
-
-        # 最初の店舗リンクを見つける
-        first_store = WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located(
+        store_elements = WebDriverWait(driver, 30).until(
+            EC.presence_of_all_elements_located(
                 (By.CSS_SELECTOR, 'a.list-rst__rst-name-target'))
         )
-        print("最初の店舗リンクを見つけました。")
+        store_urls = [store.get_attribute('href') for store in store_elements]
+    except TimeoutException:
+        print("店舗一覧の取得にタイムアウトが発生しました")
+    return store_urls
 
-        # リンクのURLを取得
-        store_url = first_store.get_attribute('href')
-        print(f"店舗ページのURL: {store_url}")
 
-        # 新しいタブで店舗ページを開く
-        driver.execute_script(f"window.open('{store_url}', '_blank');")
-        driver.switch_to.window(driver.window_handles[-1])
-        wait_for_page_load(driver)
-        print("店舗ページを新しいタブで開きました。")
-
-        # 店舗ページの要素が読み込まれるまで待機
-        WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.ID, 'rst-data-head'))
-        )
-        print("店舗ページの主要要素が読み込まれました。")
-        # 店舗名の取得
+def get_restaurant_info(driver, url, retries=3):
+    attempt = 0
+    while attempt < retries:
         try:
-            store_name_xpath = '//*[@id="rst-data-head"]/table[1]/tbody/tr[1]/td/div/span'
-            store_name = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, store_name_xpath))
-            ).text
-            print(f"店舗名を取得しました: {store_name}")
-        except (NoSuchElementException, TimeoutException) as e:
-            store_name = None
-            print(f"店舗名が見つかりませんでした: {e}")
-        
-        # ジャンルの取得
-        try:
-            genre_xpath = '//*[@id="rst-data-head"]/table[1]/tbody/tr[2]/td/span'
-            genre = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, genre_xpath))
-            ).text
-            print(f"ジャンルを取得しました: {genre}")
-        except (NoSuchElementException, TimeoutException) as e:
-            genre = None
-            print(f"ジャンルが見つかりませんでした: {e}")
-        
-        # 予約・お問い合わせの取得
-        try:
-            reserve_num_xpath = '//*[@id="rst-data-head"]/table[1]/tbody/tr[3]/td/p/strong'
-            reserve_num = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, reserve_num_xpath))
-            ).text
-            print(f"予約・お問い合わせを取得しました: {reserve_num}")
-        except (NoSuchElementException, TimeoutException) as e:
-            reserve_num = None
-            print(f"予約・お問い合わせが見つかりませんでした: {e}")
-        
-        # 住所
-        try:
-            address_xpath = '//p[@class="rstinfo-table__address"]'
-            address = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, address_xpath))
-            ).text.strip()
-            print(f"住所を取得しました: {address}")
-        except (NoSuchElementException, TimeoutException) as e:
-            address = None
-            print(f"住所が見つかりませんでした: {e}")
-        
-        # 営業時間
-        try:
-            open_time_xpath = '//*[@id="rst-data-head"]/table[1]/tbody/tr[7]/td/ul/li/ul/li'
-            open_time = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, open_time_xpath))
-            ).text
-            print(f"営業時間を取得しました: {open_time}")
-        except (NoSuchElementException, TimeoutException) as e:
-            open_time = None
-            print(f"営業時間が見つかりませんでした: {e}")
-
-        # 座席
-        try:
-            seat_count_xpath = '//*[@id="rst-data-head"]/table[2]/tbody/tr[1]/td/p'
-            seat_count = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, seat_count_xpath))
-            ).text
-            print(f"座席数を取得しました: {seat_count}")
-        except (NoSuchElementException, TimeoutException) as e:
-            seat_count = None
-            print(f"座席数が見つかりませんでした: {e}")
-            
-        # 最大予約可能人数
-        try:
-            max_reserve_xpath = '//*[@id="rst-data-head"]/table[2]/tbody/tr[2]/td/p'
-            max_reserve = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, max_reserve_xpath))
-            ).text
-        except Exception as e:
-            max_reserve = None
-            print(f"最大予約可能人数を取得しました: {max_reserve_xpath}")
-        
-        # ホームページ
-        try:
-            website_xpath = "//th[contains(text(), 'ホームページ')]/following-sibling::td//a"
-            website_element = driver.find_element(By.XPATH, website_xpath)
-            website_fullURL = website_element.get_attribute('href')
-            print(f"ホームページを取得しました: {website_fullURL}")
-        except NoSuchElementException:
-            website_fullURL = None
-            print("ホームページが見つかりませんでした。")
-
-        # 公式アカウント
-        try:
-            # official_account_xpath = "//th[contains(text(), '公式アカウント')]/following-sibling::td//a/span"
-            official_account_xpath = '//a[contains(@class, "rstinfo-sns-link") and contains(@class, "rstinfo-sns-twitter")]'
-
-            official_account_element = driver.find_element(
-                By.XPATH, official_account_xpath)
-            official_account = official_account_element.get_attribute('href')
-            print(f"公式アカウントを取得しました: {official_account}")
-        except NoSuchElementException:
-            official_account = None
-            print("公式アカウントが見つかりませんでした。")
-
-        # オープン日
-        try:
-            open_day_xpath = "//th[contains(text(), 'オープン日')]/following-sibling::td/p"
-            open_day = driver.find_element(By.XPATH, open_day_xpath).text
-            print(f"オープン日を取得しました: {open_day}")
-        except NoSuchElementException:
-            open_day = None
-            print("オープン日が見つかりませんでした。")
-
-        # 電話番号
-        try:
-            phone_number_xpath = "//th[contains(text(), '電話番号')]/following-sibling::td/p/strong"
-            phone_number = driver.find_element(
-                By.XPATH, phone_number_xpath).text
-            print(f"電話番号を取得しました: {phone_number}")
-        except NoSuchElementException:
-            phone_number = None
-            print("電話番号が見つかりませんでした。")
+            driver.get(url)
+            wait_for_page_load(driver)
+            break  # ページ読み込み成功
+        except TimeoutException as e:
+            attempt += 1
+            print(f"ページ読み込みタイムアウト（{url}）：再試行します...（{attempt}/{retries}）")
+            if attempt == retries:
+                print(f"ページ読み込み失敗（{url}）：{e}")
+                return None
+    try:
+        store_name = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(
+                (By.XPATH, '//*[@id="rst-data-head"]/table[1]/tbody/tr[1]/td/div/span'))
+        ).text
+        reserve_num = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(
+                (By.XPATH, '//*[@id="rst-data-head"]/table[1]/tbody/tr[3]/td/p/strong'))
+        ).text
+        address = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(
+                (By.XPATH, '//p[@class="rstinfo-table__address"]'))
+        ).text
+        phone_number = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(
+                (By.XPATH, "//th[contains(text(), '電話番号')]/following-sibling::td/p/strong"))
+        ).text
 
         return {
+            "店舗URL": url,
             "店舗名": store_name,
-            "ジャンル": genre,
             "予約・お問い合わせ": reserve_num,
             "住所": address,
-            "営業時間": open_time,
-            "座席": seat_count,
-            "最大予約可能人数": max_reserve,
-            "ホームページ": website_fullURL,
-            "公式アカウント": official_account,
-            "オープン日": open_day,
             "電話番号": phone_number
         }
-
-    except TimeoutException as e:
-        print(f"タイムアウトが発生しました: {e}")
-        print(f"現在のURL: {driver.current_url}")
-    except NoSuchElementException as e:
-        print(f"要素が見つかりません: {e}")
-    except Exception as e:
-        print(f"予期せぬエラーが発生しました: {e}")
-    finally:
-        driver.save_screenshot("final_state_screenshot.png")
-        print("最終状態のスクリーンショットを保存しました。")
-        driver.quit()
-
+    except (TimeoutException, NoSuchElementException) as e:
+        print(f"情報取得エラー（{url}）：{e}")
     return None
 
 
 def save_to_csv(data, filename="restaurant-info.csv"):
     with open(filename, 'w', newline='', encoding='utf-8') as file:
-        writer = csv.DictWriter(file, fieldnames=[
-                                "店舗名", "ジャンル", "予約・お問い合わせ","住所", "営業時間", "座席", "最大予約可能人数", "ホームページ", "公式アカウント", "オープン日", "電話番号"])
+        writer = csv.DictWriter(
+            file, fieldnames=["店舗URL", "店舗名", "予約・お問い合わせ", "住所", "電話番号"]
+        )
         writer.writeheader()
-        writer.writerow(data)
-    print(f"csvデータを{filename}に保存しました")
+        for row in data:
+            writer.writerow(row)
+    print(f"CSVファイルを{filename}に保存しました。")
+
+
+def modify_url_for_pagination(input_url):
+    parsed_url = urlparse(input_url)
+    path_parts = parsed_url.path.strip('/').split('/')
+
+    # 数字（ページ番号）を含む部分を探して置き換える
+    new_path_parts = []
+    page_number_found = False
+    for part in path_parts:
+        if part.isdigit():
+            new_path_parts.append('{}')
+            page_number_found = True
+        else:
+            new_path_parts.append(part)
+
+    # ページ番号が見つからない場合、末尾に'{}'を挿入
+    if not page_number_found:
+        new_path_parts.append('{}')
+
+    # 新しいパスを構築
+    new_path = '/' + '/'.join(new_path_parts) + '/'
+    # 新しいURLを生成
+    new_parsed_url = parsed_url._replace(path=new_path)
+    new_url = urlunparse(new_parsed_url)
+    return new_url
 
 
 def main():
-    url = 'https://tabelog.com/osaka/C27100/rstLst/yakiniku/?vs=1&sa=%E5%A4%A7%E9%98%AA%E5%B8%82&sk=%25E7%2584%25BC%25E8%2582%2589&lid=top_navi1&svd=20240912&svt=1900&svps=2&hfc=1&cat_sk=%E7%84%BC%E8%82%89'
-    info = get_restaurant_info(url)
-    if info:
-        print("店舗情報:")
-        for key, value in info.items():
-            print(f"{key}: {value}")
-        save_to_csv(info)
-    else:
-        print("店舗情報の取得に失敗しました。")
+    # params.jsonを読み込む
+    with open('params.json', 'r') as f:
+        params = json.load(f)
+
+    input_url = params['url']
+    max_pages = int(params['max_search_page'])
+    output_csv_filename = params['output_csv']
+
+    # ユーザーが入力したURLをページネーション対応のURLに変換
+    base_url = modify_url_for_pagination(input_url)
+
+    driver = setup_driver()
+    all_data = []
+    current_page = 1  # 現在のページ数を初期化
+    max_retries = 3  # 再試行回数
+
+    start_time = time.time()  # 処理開始時刻を取得
+
+    try:
+        while current_page <= max_pages:  # ページループ処理
+            url = base_url.format(current_page)
+            attempt = 0
+            while attempt < max_retries:
+                try:
+                    driver.get(url)
+                    wait_for_page_load(driver)
+                    break  # 正常に読み込めたらループを抜ける
+                except TimeoutException as e:
+                    attempt += 1
+                    print(f"ページ読み込みタイムアウト（{url}）：再試行します...（{attempt}/{max_retries}）")
+                    if attempt == max_retries:
+                        print(f"ページ読み込み失敗（{url}）：{e}")
+                        break  # 再試行回数を超えたら次のページへ
+
+            else:
+                current_page += 1
+                continue  # 次のページへ進む
+
+            print(f"{current_page}ページ目を処理中...")
+
+            store_urls = get_store_urls(driver)
+            for store_url in store_urls:
+                info = get_restaurant_info(driver, store_url)
+                if info:
+                    all_data.append(info)
+                    print(f"取得した店舗情報: {info}")
+                # ランダムな待機時間を追加
+                time.sleep(random.uniform(1, 3))
+
+            current_page += 1
+            # 次のページへのアクセス前に待機
+            time.sleep(random.uniform(2, 5))
+
+    finally:
+        driver.quit()
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"処理にかかった時間: {elapsed_time:.2f}秒")
+
+    # CSVに保存
+    save_to_csv(all_data, filename=output_csv_filename)
 
 
 if __name__ == "__main__":

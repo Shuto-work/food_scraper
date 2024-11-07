@@ -4,8 +4,10 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from urllib.parse import urlparse, urlunparse
 import csv
 import time
+import json
 
 
 def setup_driver():
@@ -80,6 +82,36 @@ def get_restaurant_info(driver, url):
     return None
 
 
+def modify_url_for_pagination(input_url):
+    parsed_url = urlparse(input_url)
+    path_parts = parsed_url.path.strip('/').split('/')
+
+    # 数字（ページ番号）を含む部分を探して置き換える
+    new_path_parts = []
+    page_number_found = False
+    for part in path_parts:
+        if part.isdigit():
+            new_path_parts.append('{}')  # ページ番号をプレースホルダーに置き換え
+            page_number_found = True
+        else:
+            new_path_parts.append(part)
+
+    # ページ番号が見つからない場合、適切な位置に'{}'を挿入
+    if not page_number_found:
+        # 末尾が空でない場合、末尾に挿入
+        if path_parts[-1]:
+            new_path_parts.append('{}')
+        else:
+            new_path_parts.insert(-1, '{}')
+
+    # 新しいパスを構築
+    new_path = '/' + '/'.join(new_path_parts) + '/'
+    # 新しいURLを生成
+    new_parsed_url = parsed_url._replace(path=new_path)
+    new_url = urlunparse(new_parsed_url)
+    return new_url
+
+
 def save_to_csv(data, filename="restaurant-info.csv"):
     with open(filename, 'w', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(
@@ -92,11 +124,11 @@ def save_to_csv(data, filename="restaurant-info.csv"):
 
 
 def main():
-    base_url = 'https://tabelog.com/osaka/C27100/rstLst/yakiniku/{}/?vs=1&sa=大阪市&sk=%25E7%2584%25BC%25E8%2582%2589&lid=top_navi1&svd=20240912&svt=1900&svps=2&hfc=1&cat_sk=焼肉'
+    base_url = 'https://tabelog.com/osaka/C27100/rstLst/RC1203/2/?sk=%E3%82%A4%E3%83%B3%E3%83%89%E3%82%AB%E3%83%AC%E3%83%BC&svd=20241107&svt=1900&svps=2'
     driver = setup_driver()
     all_data = []
     current_page = 1  # 現在のページ数を初期化
-    max_pages = 3     # 最大取得ページ数を設定
+    max_pages = 1     # 最大取得ページ数を設定
 
     start_time = time.time()  # 処理開始時刻を取得
 
