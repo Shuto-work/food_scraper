@@ -49,7 +49,7 @@ if submit_button:
 
     # scraper.pyを実行
     python_path = sys.executable
-    result = subprocess.run([python_path, "scraper.py"],
+    result = subprocess.run([python_path, "demo.py"],
                             capture_output=True, text=True)
 
     if result.returncode == 0:

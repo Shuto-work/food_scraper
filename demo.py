@@ -1,43 +1,43 @@
 import json
 import csv
 import time
-from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.microsoft import EdgeChromiumDriverManager
-from selenium.common.exceptions import WebDriverException
+
+
+def load_params(file_path):
+    """JSONファイルを読み込む"""
+    try:
+        with open(file_path, "r") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"パラメータファイル {file_path} が見つかりませんでした。")
+        raise
+    except json.JSONDecodeError:
+        print(f"パラメータファイル {file_path} の形式が正しくありません。")
+        raise
 
 
 def setup_driver():
     """WebDriverをセットアップ"""
     options = webdriver.ChromeOptions()
-    options.add_argument("--headless=new")  # ヘッドレスモード
-    options.add_argument("--disable-gpu")  # GPUを無効化
-    options.add_argument("--no-sandbox")  # サンドボックスモードを無効化
-    options.add_argument("--disable-dev-shm-usage")  # 共有メモリ使用を無効化
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
-    )
-
-    # WebDriverのインストールと初期化
-    return webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        options=options
-    )
-
-
-try:
-    driver = setup_driver()
-except WebDriverException as e:
-    print(f"WebDriverのエラー: {e}")
-    raise
+    options.add_argument("--disable-gpu")
+    options.add_argument('--headless=new')  # ヘッドレスモード
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-software-rasterizer")
+    service = Service(ChromeDriverManager().install())
+    return webdriver.Chrome(service=service, options=options)
 
 
 def wait_for_page_load(driver, timeout=30):
+    """ページの読み込みを待機"""
     try:
         WebDriverWait(driver, timeout).until(
             lambda d: d.execute_script(
@@ -48,6 +48,7 @@ def wait_for_page_load(driver, timeout=30):
 
 
 def get_store_urls(driver):
+    """店舗URLを取得"""
     try:
         store_elements = WebDriverWait(driver, 30).until(
             EC.presence_of_all_elements_located(
@@ -60,46 +61,33 @@ def get_store_urls(driver):
 
 
 def get_restaurant_info(driver, url):
+    """店舗情報を取得"""
     driver.get(url)
     wait_for_page_load(driver)
     try:
-        store_name = driver.find_element(
-            By.XPATH, '//*[@id="rst-data-head"]/table[1]/tbody/tr[1]/td/div/span').text
-        reserve_num = driver.find_element(
-            By.XPATH, '//*[@id="rst-data-head"]/table[1]/tbody/tr[3]/td/p/strong').text
-        address = driver.find_element(
-            By.XPATH, '//p[@class="rstinfo-table__address"]').text
-        phone_number = driver.find_element(
-            By.XPATH, "//th[contains(text(), '電話番号')]/following-sibling::td/p/strong").text
-
-        return {
-            "店舗URL": url,
-            "店舗名": store_name,
-            "予約・お問い合わせ": reserve_num,
-            "住所": address,
-            "電話番号": phone_number
-        }
+        store_name = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located(
+                (By.XPATH, '//*[@id="rst-data-head"]/table[1]/tbody/tr[1]/td/div/span'))
+        ).text
+        return {"店舗URL": url, "店舗名": store_name}
     except Exception as e:
-        print(f"店舗情報の取得中にエラーが発生しました: {e}")
+        print(f"エラー: {e}")
     return None
 
 
 def save_to_csv(data, filename):
+    """CSVに保存"""
     with open(filename, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(
-            f, fieldnames=["店舗URL", "店舗名", "予約・お問い合わせ", "住所", "電話番号"])
+        writer = csv.DictWriter(f, fieldnames=["店舗URL", "店舗名"])
         writer.writeheader()
         writer.writerows(data)
 
 
 def main():
-    # JSONファイルからパラメータを読み込み
-    with open("params.json", "r") as f:
-        params = json.load(f)
-
+    params = load_params("params.json")
     base_url = params["base_url"]
-    start_page = params["start_page"]
-    end_page = params["end_page"]
+    start_page = int(params["start_page"])
+    end_page = int(params["end_page"])
     output_csv = params["output_csv"]
 
     driver = setup_driver()
@@ -107,26 +95,23 @@ def main():
 
     try:
         for page in range(start_page, end_page + 1):
-            url = f"{base_url}page/{page}/"
-            print(f"取得中: {url}")
+            # url = f"{base_url.format(page)}page/{page}/"
+            url = base_url.format(start_page)
+            print(f"取得url: {url}")
             driver.get(url)
             wait_for_page_load(driver)
-
             store_urls = get_store_urls(driver)
-            print(f"{len(store_urls)}件の店舗URLを取得しました。")
 
             for store_url in store_urls:
                 info = get_restaurant_info(driver, store_url)
                 if info:
                     all_data.append(info)
 
-            time.sleep(2)  # 過剰負荷防止
-
     finally:
         driver.quit()
 
     save_to_csv(all_data, output_csv)
-    print(f"スクレイピング結果を{output_csv}に保存しました。")
+    print(f"データを {output_csv} に保存しました。")
 
 
 if __name__ == "__main__":
