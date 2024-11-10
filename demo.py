@@ -9,6 +9,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
+from selenium.common.exceptions import WebDriverException
 
 
 def setup_driver():
@@ -27,6 +28,13 @@ def setup_driver():
         service=Service(ChromeDriverManager().install()),
         options=options
     )
+
+
+try:
+    driver = setup_driver()
+except WebDriverException as e:
+    print(f"WebDriverのエラー: {e}")
+    raise
 
 
 def wait_for_page_load(driver, timeout=30):
