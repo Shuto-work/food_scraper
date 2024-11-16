@@ -33,7 +33,9 @@ def setup_driver():
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-software-rasterizer")
     service = Service(ChromeDriverManager().install())
-    return webdriver.Chrome(service=service, options=options)
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.set_page_load_timeout(300)  # タイムアウトを300秒に増加
+    return driver
 
 
 def wait_for_page_load(driver, timeout=30):
