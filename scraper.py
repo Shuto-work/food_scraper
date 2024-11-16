@@ -11,7 +11,9 @@ import json
 
 def setup_driver():
     options = Options()
+    proxy = "39.162.78.109:8080"  # プロキシIPとポート
     options.add_argument('--headless=new')  # ヘッドレスモード
+    options.add_argument(f"--proxy-server=http://{proxy}")  # プロキシを指定
     options.add_argument('--disable-gpu')
     options.add_argument('--disable-software-rasterizer')
     options.add_argument('--no-sandbox')
@@ -23,7 +25,7 @@ def setup_driver():
     return webdriver.Chrome(options=options)
 
 
-def wait_for_page_load(driver, timeout=30):
+def wait_for_page_load(driver, timeout=150):
     try:
         WebDriverWait(driver, timeout).until(
             lambda d: d.execute_script(
@@ -100,11 +102,11 @@ def main():
     # ベースURL。ページ番号部分を`{}`で指定
     # base_url = 'https://tabelog.com/osaka/C27100/rstLst/yakiniku/{}/'
 
-    base_url = 'https://tabelog.com/osaka/C27100/rstLst/RC1203/{}/?sk=%E3%82%A4%E3%83%B3%E3%83%89%E3%82%AB%E3%83%AC%E3%83%BC&svd=20241110&svt=1900&svps=2'
+    base_url = 'https://tabelog.com/osaka/C27100/rstLst/RC21/{}/?sk=%E5%B1%85%E9%85%92%E5%B1%8B&svd=20241111&svt=1900&svps=2'
     driver = setup_driver()
     all_data = []
-    current_page = 2  # 開始ページ
-    end_pages = 5     # 終了ページ
+    current_page = 30  # 開始ページ
+    end_pages = 30     # 終了ページ
 
     start_time = time.time()  # 処理開始時刻
 
@@ -127,7 +129,7 @@ def main():
                     print(f"取得した店舗情報: {info}")
 
             current_page += 1
-            time.sleep(2)  # 過剰負荷防止のための遅延
+            time.sleep(5)  # 過剰負荷防止のための遅延
 
     finally:
         driver.quit()
