@@ -8,10 +8,7 @@ st.title("Tabelog Scraper")
 with st.expander("使い方"):
     st.markdown("""
         1. **「URL」を入力**:
-        - 検索条件を絞り込んだ後のURLを入力（ページ番号は{}に書き換える。）。
-        - 例:
-        - 書き換え前：https://tabelog.com/osaka/C27100/rstLst/cafe/1/?sk=%E3%82%AB%E3%83%95%E...
-        - 書き換え後：https://tabelog.com/osaka/C27100/rstLst/cafe/{これ}/?sk=%E3%82%AB%E3%83%...
+        - 検索条件を絞り込んだ後のURLを入力。
         2. **「データ取得範囲」を入力**:
         - 開始ページと終了ページを指定。
         3. **「実行ボタン」を押す**:
@@ -24,11 +21,11 @@ with st.expander("使い方"):
 with st.form(key="scraper_form"):
     base_url = st.text_input(
         "検索結果URL（ページ番号は{}に書き換える）",
-        placeholder="例: https://tabelog.com/osaka/C27100/rstLst/cafe/{}/?sk=%E3%82%AB%E3%83%95%E3%82%A7..."
+        placeholder=""
     )
     start_page = st.number_input("取得開始ページ", min_value=1, value=1, step=1)
     end_page = st.number_input("取得終了ページ", min_value=1, value=1, step=1)
-    output_csv = st.text_input("出力CSVファイル名", "tabelog_results.csv")
+    output_csv = st.text_input("出力CSVファイル名", "shop_info.csv")
     submit_button = st.form_submit_button("スクレイピングを実行")
 
 if submit_button:
