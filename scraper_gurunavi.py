@@ -3,48 +3,65 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from lxml import html
-import requests
+from selenium.common.exceptions import TimeoutException
 import re
+
+# Seleniumのオプション設定
+options = Options()
+options.add_argument("--headless")  # ヘッドレスモード（ブラウザを非表示）
+
+# ChromeDriverの設定
+driver = webdriver.Chrome(options=options)
 
 # 取得対象のURL
 url = "https://r.gnavi.co.jp/ca04h42e0000/"
 
 try:
-    # HTTPリクエストを送信
-    response = requests.get(url)
-    response.raise_for_status()  # ステータスコードを確認
+    # ページを開く
+    driver.get(url)
 
-    # エンコーディングを修正
-    response.encoding = response.apparent_encoding  # サーバーのエンコーディングに自動で合わせる
+    # 店名を取得
+    shop_name = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="info-name"]'))
+    ).text.strip()
 
-    # # HTMLを解析
-    tree = html.fromstring(response.content)
+    # 電話番号を取得
+    shop_number = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.XPATH, '//*[@id="info-phone"]/td/ul[1]/li[1]/span[1]'))
+    ).text.strip()
 
-    # 郵便番号と住所を取得して結合
-    postal_code = tree.xpath(
-        '//*[@id="info-table"]/table/tbody/tr[3]/td/p/text()')
-    region = tree.xpath(
-        '//*[@id="info-table"]/table/tbody/tr[3]/td/p/span[1]/text()')
-    full_address = f"{''.join(postal_code).strip()} {''.join(region).strip()}"
+    # 住所（郵便番号＋住所）を取得
+    postal_code = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.XPATH, '//*[@id="info-table"]/table/tbody/tr[3]/td/p'))
+    ).text.strip()
+    region = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.XPATH, '//*[@id="info-table"]/table/tbody/tr[3]/td/p/span[1]'))
+    ).text.strip()
+    full_address = f"{postal_code} {region}"
 
-    # 取得対象の要素を辞書にまとめる
+    # 座席数を取得
+    seats = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located(
+            (By.XPATH, '//p[@class="commonAccordion_content_item_desc"]'))
+    ).text.strip()
+
+    # 辞書形式で結果をまとめる
     target_elements = {
-        "shop_name": tree.xpath('//*[@id="info-name"]/text()'),
-        "shop_number": tree.xpath('//*[@id="info-phone"]/td/ul[1]/li[1]/span[1]/text()'),
-        "shop_address": [full_address],
-        "seats": tree.xpath('//p[@class="commonAccordion_content_item_desc"]')
+        "shop_name": shop_name,
+        "shop_number": shop_number,
+        "shop_address": full_address,
+        "seats": seats
     }
 
-    # 要素が正しいか確認
-    for key, target in target_elements.items():
-        if target:
-            print("要素が見つかりました:")
-            cleaned_text = re.sub(r'\s+', ' ', ' '.join(target).strip())
-            print(cleaned_text)
-        else:
-            print("指定した要素が見つかりませんでした。セレクタを確認してください。")
+    # 結果を出力
+    for key, value in target_elements.items():
+        print(f"{key}: {value}")
 
-except requests.exceptions.RequestException as e:
-    print(f"リクエストエラー: {e}")
+except TimeoutException:
+    print("指定した要素が見つかりませんでした。")
+finally:
+    # ブラウザを閉じる
+    driver.quit()
