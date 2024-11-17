@@ -18,7 +18,8 @@ XPATHS = {
     'shop_number': '//*[@id="info-phone"]/td/ul[1]/li[1]/span[1]/text()',
     'postal_code': '//*[@id="info-table"]/table/tbody/tr[3]/td/p/text()',
     'region': '//*[@id="info-table"]/table/tbody/tr[3]/td/p/span[1]/text()',
-    'seats': '//p[@class="commonAccordion_content_item_desc"]/text()',
+    # 'seats': '//p[@class="commonAccordion_content_item_desc"]/text()',
+    'seats': '//*[@id="info-table-seat"]/table/tbody/tr[1]/td/ul/li/text()',
 }
 
 
