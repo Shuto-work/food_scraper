@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from scraper_gurunavi import main
+import time
+
 
 st.title("Gurunavi Scraper")
 
@@ -26,6 +28,7 @@ with st.form(key="scraper_form"):
     submit_button = st.form_submit_button("スクレイピングを実行")
 
 if submit_button:
+    start_time = time.time()
     st.write("スクレイピングを開始します...")
     st.text(f"URL: {base_url}")
     st.text(f"取得範囲: {start_page}ページ目から{end_page}ページ目")
@@ -35,6 +38,9 @@ if submit_button:
         collected_data = main(base_url, start_page, end_page)
 
     if collected_data:
+        end_time = time.time()
+        diff_time = end_time - start_time
+        st.success(f"処理にかかった時間：{diff_time}秒")
         st.success("スクレイピングが完了しました。結果をダウンロードしてください。")
 
         # データフレームに変換
