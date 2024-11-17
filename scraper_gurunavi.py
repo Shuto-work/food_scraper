@@ -7,7 +7,6 @@ import random
 from urllib.parse import urljoin
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-
 # ログの設定
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -58,6 +57,9 @@ def get_shop_data(shop_url):
             '座席数': seats
         }
         return data
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"HTTPエラーが発生しました: {e}")
     except Exception as e:
         logging.error(f"店舗ページの取得中にエラーが発生しました {shop_url}: {e}")
         return None
@@ -84,9 +86,13 @@ def main(base_url, start_page, end_page):
 
         logging.info(f"ページ{page_num}を処理しています: {page_url}")
 
+        response = session.get(page_url, headers=headers)
+        if response.status_code != 200:
+            logging.error(f"ページの読み込みに失敗しました。ステータスコード: {
+                          response.status_code} - URL: {page_url}")
+            continue
+
         try:
-            response = session.get(page_url, headers=headers)
-            response.raise_for_status()
             response.encoding = response.apparent_encoding
             page_content = response.content
             shop_urls = get_shop_links(page_content, base_url)
@@ -109,11 +115,13 @@ def main(base_url, start_page, end_page):
         writer.writeheader()
         for data in collected_data:
             writer.writerow(data)
-    logging.info("データの収集が完了しました。'shop_data.csv' に保存されました。")
+    logging.info("データの収集が完了し、csvファイルに保存されました。")
 
     end_time = time.time()
     diff_time = end_time - start_time
     logging.info(f"処理にかかった時間：{diff_time}秒")
+
+    return collected_data
 
 
 if __name__ == "__main__":

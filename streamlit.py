@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from scraper_gurunavi import main
-# 必要な他のモジュールをインポート
 
 st.title("Gurunavi Scraper")
 
@@ -22,6 +21,8 @@ with st.form(key="scraper_form"):
     base_url = st.text_input("ベースURLを入力してください", placeholder="")
     start_page = st.number_input("開始ページ番号", min_value=1, value=1, step=1)
     end_page = st.number_input("終了ページ番号", min_value=1, value=1, step=1)
+    output_csv = st.text_input(
+        "出力CSVファイル名", "shop_info.csv")
     submit_button = st.form_submit_button("スクレイピングを実行")
 
 if submit_button:
@@ -46,7 +47,7 @@ if submit_button:
         st.download_button(
             label="CSVをダウンロード",
             data=csv,
-            file_name='shop_data.csv',
+            file_name=output_csv,
             mime='text/csv'
         )
     else:
